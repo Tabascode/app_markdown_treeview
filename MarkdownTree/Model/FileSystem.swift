@@ -91,8 +91,8 @@ enum FileSystem {
         try? FileManager.default.startDownloadingUbiquitousItem(at: url)
         var coordinationError: NSError?
         var result: Result<Data, Error> = .failure(CocoaError(.fileReadUnknown))
-        NSFileCoordinator().coordinate(readingItemAt: url, options: [.withoutChanges], error: &coordinationError) {
-            result = Result { try Data(contentsOf: $0) }
+        NSFileCoordinator().coordinate(readingItemAt: url, options: [.withoutChanges], error: &coordinationError) { coordinatedURL in
+            result = Result { try Data(contentsOf: coordinatedURL) }
         }
         if let coordinationError { throw coordinationError }
         return try result.get()
