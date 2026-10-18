@@ -8,13 +8,27 @@ jobs:
   build:
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Show Xcode version
         run: xcodebuild -version
       - name: Build for iOS Simulator
         run: |
+          set -o pipefail
           xcodebuild build \
             -project MarkdownTree.xcodeproj \
             -scheme MarkdownTree \
             -destination 'generic/platform=iOS Simulator' \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tee build.log
+      - name: Report build errors as annotations
+        if: failure()
+        run: |
+          # Surface compiler errors as annotations, which stay readable when logs are not.
+          grep -E "error:|\*\* BUILD" build.log | sort -u | head -50 | while IFS= read -r line; do
+            if [[ "$line" =~ ^(/[^:]+):([0-9]+):([0-9]+):\ error:\ (.*)$ ]]; then
+              file="${BASH_REMATCH[1]#$GITHUB_WORKSPACE/}"
+              echo "::error file=$file,line=${BASH_REMATCH[2]},col=${BASH_REMATCH[3]}::${BASH_REMATCH[4]}"
+            else
+              echo "::error::$line"
+            fi
+          done
+          tail -15 build.log | while IFS= read -r line; do echo "::warning::$line"; done
